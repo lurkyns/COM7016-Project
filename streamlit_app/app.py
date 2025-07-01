@@ -1,63 +1,69 @@
 import streamlit as st
 import pandas as pd
 import joblib
-import os
+from utils import save_unknown_food
 
-st.write("Streamlit app script started successfully!")
+# Load Data 
+df = pd.read_csv("data/cleaned/food_labelled.csv")
 
-# Check working directory
-st.write("Current working directory:", os.getcwd())
+# Load model
+model = joblib.load("models/decision_tree_model.pkl")
 
-# Corrected CSV path
-csv_path = "data/cleaned/food_labelled.csv"
-st.write("Checking CSV path:", csv_path)
-if os.path.exists(csv_path):
-    df = pd.read_csv(csv_path)
-    st.write(" CSV loaded successfully!")
-    st.write("Columns in DataFrame:", df.columns.tolist())
-else:
-    st.error(" CSV file NOT FOUND!")
-    st.stop()
-
-# Corrected model path
-model_path = "models/decision_tree_model.pkl"
-st.write("Checking model path:", model_path)
-if os.path.exists(model_path):
-    model = joblib.load(model_path)
-    st.write(" Model loaded successfully!")
-else:
-    st.error("Model file NOT FOUND!")
-    st.stop()
-
-# Streamlit UI
+# App title
 st.title("Can I Eat This? - Diabetes Food Suitability Checker")
 
-st.write("""Enter a food name or ingredient (e.g. "tomato", "pasta", "butter").
-The app will check the nutrition data and tell you if it's suitable for diabetics.""")
+st.write("""
+Enter a food name or ingredient (e.g. "tomato", "pasta", "butter").
+The app will check the nutrition data and tell you if it's suitable for diabetics.
+""")
 
 # User input
 food_name = st.text_input("Enter food name:")
 
 if st.button("Check Suitability"):
     st.write("User typed:", food_name)
+    
+    # Search for matches
     matches = df[df['Description'].str.contains(food_name, case=False, na=False)]
     
     st.write(f"Number of matches found: {len(matches)}")
     
+    # If no matches found
     if len(matches) == 0:
         st.warning("Oh no! Food not found in the database.")
-    else:
-        st.success(f"Found {len(matches)} matching food(s):")
         
-        for idx, row in matches.iterrows():
-            st.write(f"### {row['Description']}")
-            st.write(f"- Sugar: {row['Data.Sugar Total']} g/100g")
-            st.write(f"- Carbs: {row['Data.Carbohydrate']} g/100g")
-            st.write(f"- Fibre: {row['Data.Fiber']} g/100g")
-            st.write(f"- Energy: {row['Data.Kilocalories']} kcal/100g")
-            st.write(f"- Saturated Fat: {row['Data.Fat.Saturated Fat']} g/100g")
+        st.write("**Help us improve!** Please enter your details so we can let you know if we add this food.")
+        
+        with st.form("user_info_form"):
+            first_name = st.text_input("First Name")
+            last_name = st.text_input("Last Name")
+            email = st.text_input("Email Address")
             
-            # Prepare input for model
+            submitted = st.form_submit_button("Submit")
+            
+            if submitted:
+                if email.strip() == "" or food_name.strip() == "":
+                    st.error("Please enter both a food name and your email so we can contact you.")
+        else:
+            save_unknown_food(food_name, first_name, last_name, email)
+            st.success(f"Saved '{food_name}' with email {email}.")
+    
+    # If matches found 
+    else:
+        for idx, row in matches.iterrows():
+            st.markdown(f"### {row['Description'].title()}")
+            
+            st.markdown(
+                f"""
+                - **Sugar:** {round(row['Data.Sugar Total'], 1)} g/100g
+                - **Carbs:** {round(row['Data.Carbohydrate'], 1)} g/100g
+                - **Fibre:** {round(row['Data.Fiber'], 1)} g/100g
+                - **Energy:** {round(row['Data.Kilocalories'], 0)} kcal/100g
+                - **Saturated Fat:** {round(row['Data.Fat.Saturated Fat'], 1)} g/100g
+                """
+            )
+            
+            # Prepare the input for the model
             input_data = row[
                 [
                     'Data.Sugar Total',
@@ -71,6 +77,6 @@ if st.button("Check Suitability"):
             prediction = model.predict(input_data)[0]
             
             if prediction == 1:
-                st.success(" Suitable for diabetics!")
+                st.success("Suitable for diabetics!")
             else:
-                st.error(" Not suitable for diabetics.")
+                st.error("Not suitable for diabetics.")
