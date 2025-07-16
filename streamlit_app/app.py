@@ -44,9 +44,9 @@ if st.button("Check Suitability"):
             if submitted:
                 if email.strip() == "" or food_name.strip() == "":
                     st.error("Please enter both a food name and your email so we can contact you.")
-        else:
-            save_unknown_food(food_name, first_name, last_name, email)
-            st.success(f"Saved '{food_name}' with email {email}.")
+                else:
+                    save_unknown_food(food_name, first_name, last_name, email)
+                    st.success(f"Saved '{food_name}' with email {email}.")
     
     # If matches found 
     else:
