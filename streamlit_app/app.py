@@ -3,6 +3,7 @@ import pandas as pd
 import joblib
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+import matplotlib.pyplot as plt
 
 # Load data and model
 df = pd.read_csv("data/cleaned/food_labelled.csv")
@@ -227,62 +228,86 @@ if st.button("Check Suitability"):
     if matches.empty:
         st.warning("Food not found or excluded due to your profile.")
         st.stop()
-
-    for _, row in matches.iterrows():
-        st.markdown(f"### {row['Description'].title()}")
-        #  NEW category
-        category = classify_food_category(row["Description"])
-        st.markdown(f"** Category:** {category}")
         
-          # Nutrition panel
-          
-        st.markdown(
-            f"""
-            - **Sugar:** {row['Data.Sugar Total']:.1f} g  
-            - **Carbs:** {row['Data.Carbohydrate']:.1f} g  
-            - **Fibre:** {row['Data.Fiber']:.1f} g  
-            - **Energy:** {row['Data.Kilocalories']:.0f} kcal  
-            - **Sat. fat:** {row['Data.Fat.Saturated Fat']:.1f} g  
-            """
-        )
-        
-         # Prediction and explanations
-        features = row[[
-            "Data.Sugar Total", "Data.Carbohydrate",
-            "Data.Fiber", "Data.Kilocalories",
-            "Data.Fat.Saturated Fat"
-        ]].values.reshape(1, -1)
+        # Nutrient Comparison Chart
+for _, row in matches.iterrows():
+    st.markdown(f"### {row['Description'].title()}")
+    category = classify_food_category(row["Description"])
+    st.markdown(f"**Category:** {category}")
 
-        pred = model.predict(features)[0]
-        explanation = get_nutrition_explanation(row)
-        feedback = generate_dietary_feedback(row, pred)
+    # Nutrition panel
+    st.markdown(
+        f"""
+        - **Sugar:** {row['Data.Sugar Total']:.1f} g  
+        - **Carbs:** {row['Data.Carbohydrate']:.1f} g  
+        - **Fibre:** {row['Data.Fiber']:.1f} g  
+        - **Energy:** {row['Data.Kilocalories']:.0f} kcal  
+        - **Sat. fat:** {row['Data.Fat.Saturated Fat']:.1f} g  
+        """
+    )
 
-        if pred == 1:
-            st.success(" Suitable for diabetics.")
+    # Prediction and explanations
+    features = row[[
+        "Data.Sugar Total", "Data.Carbohydrate",
+        "Data.Fiber", "Data.Kilocalories",
+        "Data.Fat.Saturated Fat"
+    ]].values.reshape(1, -1)
+    pred = model.predict(features)[0]
+    explanation = get_nutrition_explanation(row)
+    feedback = generate_dietary_feedback(row, pred)
+
+    # Prediction display
+    if pred == 1:
+        st.success(" Suitable for diabetics.")
+    else:
+        st.error(" Not suitable for diabetics.")
+        alts = suggest_alternatives(row)
+        if alts:
+            st.warning("Try these healthier alternatives:")
+            for alt in alts:
+                st.markdown(f"- {alt.title()}")
         else:
-            st.error(" Not suitable for diabetics.")
-            alts = suggest_alternatives(row)
-            if alts:
-                st.warning("Try these healthier alternatives:")
-                for alt in alts:
-                    st.markdown(f"- {alt.title()}")
-            else:
-                st.info("No close healthier options found.")
+            st.info("No close healthier options found.")
 
-        st.info(explanation)
-        st.markdown(f"** Smart Summary:** {feedback}")
+    st.info(explanation)
+    st.markdown(f"**Smart Summary:** {feedback}")
 
-        # Get contextual suggestions based on food text
-        extra_notes = get_contextual_recommendations(row["Description"])
-        if extra_notes:
-            st.markdown("**Contextual Recommendations:**")
-            for note in extra_notes:
-                st.write(f"- {note}")
-        
-        # Add warning if relevant
-        diab_type = st.session_state.get("profile", {}).get("diabetes_type", "")
-        warning = generate_diabetes_warning(row, diab_type)
-        if warning:
-            st.warning(warning)
-            
-            
+    # Visual: Nutrient comparison
+    st.markdown("#### Nutrient Breakdown vs Thresholds")
+    nutrients = {
+        "Sugar": row["Data.Sugar Total"],
+        "Carbs": row["Data.Carbohydrate"],
+        "Fibre": row["Data.Fiber"],
+        "Kcal": row["Data.Kilocalories"],
+        "Sat Fat": row["Data.Fat.Saturated Fat"]
+    }
+    thresholds = {
+        "Sugar": 10, "Carbs": 50, "Fibre": 3, "Kcal": 120, "Sat Fat": 5
+    }
+
+    labels = list(nutrients.keys())
+    values = list(nutrients.values())
+    max_vals = [thresholds[k] for k in labels]
+
+    fig, ax = plt.subplots(figsize=(6, 3))
+    ax.bar(labels, max_vals, color='lightgrey', label="Recommended Max")
+    ax.bar(labels, values, color='skyblue', label="This Food")
+    ax.set_ylabel("g or kcal per 100g")
+    ax.set_title("Nutrition vs Health Guidelines")
+    ax.legend()
+    st.pyplot(fig)
+
+    # Get contextual suggestions based on food text
+    extra_notes = get_contextual_recommendations(row["Description"])
+    if extra_notes:
+        st.markdown("**Contextual Recommendations:**")
+        for note in extra_notes:
+            st.write(f"- {note}")
+
+    # Add warning if relevant
+    diab_type = st.session_state.get("profile", {}).get("diabetes_type", "")
+    warning = generate_diabetes_warning(row, diab_type)
+    if warning:
+        st.warning(warning)
+
+    
