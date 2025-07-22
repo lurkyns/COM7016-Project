@@ -85,7 +85,7 @@ def profile_form():
             st.session_state.profile = None
             st.experimental_rerun()
 
-# EXPLANATION GENERATOR
+# EXPLANATION GENERATOR 
 
 def get_nutrition_explanation(row):
     reasons = []
@@ -151,6 +151,23 @@ def generate_diabetes_warning(row, diabetes_type):
         warning = " This food could raise your blood sugar levels significantly."
 
     return warning
+
+# AI FEATURE 4: CONTEXTUAL RECOMMENDATIONS BASED ON FOOD TEXT
+def get_contextual_recommendations(description):
+    suggestions = []
+
+    if "fried" in description.lower():
+        suggestions.append("Consider grilled or baked options instead of fried.")
+    if "syrup" in description.lower() or "sugar" in description.lower():
+        suggestions.append("Try unsweetened or low-sugar alternatives.")
+    if "white bread" in description.lower() or "refined" in description.lower():
+        suggestions.append("Wholegrain options might be better for blood sugar control.")
+    if "juice" in description.lower():
+        suggestions.append("Whole fruits are generally better than fruit juices.")
+    if "pastry" in description.lower() or "cake" in description.lower():
+        suggestions.append("Limit baked sweets and consider lower-carb snacks.")
+
+    return suggestions
 
 # ALTERNATIVE SUGGESTIONS
 
@@ -254,9 +271,18 @@ if st.button("Check Suitability"):
 
         st.info(explanation)
         st.markdown(f"** Smart Summary:** {feedback}")
+
+        # Get contextual suggestions based on food text
+        extra_notes = get_contextual_recommendations(row["Description"])
+        if extra_notes:
+            st.markdown("**Contextual Recommendations:**")
+            for note in extra_notes:
+                st.write(f"- {note}")
         
         # Add warning if relevant
         diab_type = st.session_state.get("profile", {}).get("diabetes_type", "")
         warning = generate_diabetes_warning(row, diab_type)
         if warning:
             st.warning(warning)
+            
+            
