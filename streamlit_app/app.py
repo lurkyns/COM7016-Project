@@ -12,6 +12,30 @@ model = joblib.load("models/decision_tree_model.pkl")
 vectoriser = TfidfVectorizer(stop_words="english")
 tfidf_matrix = vectoriser.fit_transform(df["Description"])
 
+#  CATEGORY CLASSIFIER (rule‑based keywords)
+
+category_keywords = {
+    "Vegetable": ["lettuce", "spinach", "kale", "carrot", "broccoli", "pepper",
+                  "tomato", "onion", "cabbage", "bean"],
+    "Meat": ["chicken", "beef", "pork", "bacon", "sausage", "lamb", "turkey",
+             "ham", "meat"],
+    "Grain": ["rice", "pasta", "bread", "cereal", "quinoa", "oat", "flour",
+              "noodle", "grain"],
+    "Fruit": ["apple", "banana", "grape", "orange", "berry", "mango", "melon",
+              "fruit", "peach", "pear"],
+    "Dairy": ["milk", "cheese", "yogurt", "butter", "cream", "dairy"],
+    "Snack": ["chocolate", "biscuit", "cookie", "crisp", "cake", "candy",
+              "snack", "chips", "cracker"],
+}
+
+def classify_food_category(description: str) -> str:
+    """Return a simple food category based on keyword matching."""
+    text = description.lower()
+    for cat, words in category_keywords.items():
+        if any(w in text for w in words):
+            return cat
+    return "Other"
+
 # USER PROFILE FORM
 def profile_form():
     if "profile" not in st.session_state:
@@ -87,7 +111,7 @@ def get_nutrition_explanation(row):
 
     return ("This food has " + ", ".join(reasons) + "." if reasons else "This food has a balanced nutrition profile.") + extra_context
 
-# NEW AI FEATURE: SMART FEEDBACK SUMMARY
+# AI FEATURE: SMART FEEDBACK SUMMARY
 def generate_dietary_feedback(row, prediction):
     if prediction == 1:
         return (
@@ -112,7 +136,24 @@ def generate_dietary_feedback(row, prediction):
             f"Try choosing foods with better fibre, sugar, and carb balance."
         )
 
+# AI FEATURE 3: Custom warning based on diabetes type
+
+def generate_diabetes_warning(row, diabetes_type):
+    sugar = row["Data.Sugar Total"]
+    carbs = row["Data.Carbohydrate"]
+    warning = ""
+
+    if diabetes_type == "Type 1" and sugar > 10:
+        warning = " This food may cause a blood sugar spike and may require insulin adjustment."
+    elif diabetes_type == "Type 2" and (sugar > 10 or carbs > 50):
+        warning = " This food has high sugar and carbohydrate content. Monitor portion size carefully."
+    elif diabetes_type == "Prediabetes" and (sugar > 8 or carbs > 40):
+        warning = " This food could raise your blood sugar levels significantly."
+
+    return warning
+
 # ALTERNATIVE SUGGESTIONS
+
 def suggest_alternatives(bad_row, max_suggestions=3):
     query_vec = vectoriser.transform([bad_row["Description"]])
     sims = cosine_similarity(query_vec, tfidf_matrix).flatten()
@@ -147,10 +188,14 @@ if st.button("Check Suitability"):
     st.write("User typed:", food_name)
     matches = df[df["Description"].str.contains(food_name, case=False, na=False)]
 
+# Allergy filtering
+
     if "profile" in st.session_state and st.session_state.profile:
         for allergen in st.session_state.profile["allergies"]:
             matches = matches[~matches["Description"].str.contains(allergen, case=False, na=False)]
 
+  # Checkbox filters
+  
     if low_sugar:
         matches = matches[matches["Data.Sugar Total"] <= 5]
     if low_carbs:
@@ -168,6 +213,12 @@ if st.button("Check Suitability"):
 
     for _, row in matches.iterrows():
         st.markdown(f"### {row['Description'].title()}")
+        #  NEW category
+        category = classify_food_category(row["Description"])
+        st.markdown(f"** Category:** {category}")
+        
+          # Nutrition panel
+          
         st.markdown(
             f"""
             - **Sugar:** {row['Data.Sugar Total']:.1f} g  
@@ -177,6 +228,8 @@ if st.button("Check Suitability"):
             - **Sat. fat:** {row['Data.Fat.Saturated Fat']:.1f} g  
             """
         )
+        
+         # Prediction and explanations
         features = row[[
             "Data.Sugar Total", "Data.Carbohydrate",
             "Data.Fiber", "Data.Kilocalories",
@@ -201,3 +254,9 @@ if st.button("Check Suitability"):
 
         st.info(explanation)
         st.markdown(f"** Smart Summary:** {feedback}")
+        
+        # Add warning if relevant
+        diab_type = st.session_state.get("profile", {}).get("diabetes_type", "")
+        warning = generate_diabetes_warning(row, diab_type)
+        if warning:
+            st.warning(warning)
