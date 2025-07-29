@@ -232,10 +232,10 @@ if st.button("Check Suitability"):
         st.stop()
         
         # Nutrient Comparison Chart
-for _, row in matches.iterrows():
-    st.markdown(f"### {row['Description'].title()}")
-    category = classify_food_category(row["Description"])
-    st.markdown(f"**Category:** {category}")
+    for _, row in matches.iterrows():
+        st.markdown(f"### {row['Description'].title()}")
+        category = classify_food_category(row["Description"])
+        st.markdown(f"**Category:** {category}")
 
     # Nutrition panel
     st.markdown(
