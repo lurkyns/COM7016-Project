@@ -193,6 +193,8 @@ def suggest_alternatives(bad_row, max_suggestions=3):
 st.title("Can I Eat This? – Diabetes Food Suitability Checker")
 profile_form()
 
+st.warning("⚠ This tool is for educational purposes only and should not replace medical advice. Always consult a healthcare provider for personalised dietary guidance.")
+
 st.write("Enter a food name (e.g. *tomato*, *pasta*, *butter*) to see if it’s suitable for diabetics.")
 food_name = st.text_input("Enter food name:")
 
