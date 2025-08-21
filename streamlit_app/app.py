@@ -258,7 +258,7 @@ if st.button("Check Suitability"):
     explanation = get_nutrition_explanation(row)
     feedback = generate_dietary_feedback(row, pred)
 
-    # Prediction display
+    # Prediction display using Decision Tree model
     if pred == 1:
         st.success(" Suitable for diabetics.")
     else:
